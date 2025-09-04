@@ -8,10 +8,9 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local camera = Workspace.CurrentCamera
 
--- safe cloneref fallback
 local safe_cloneref = (rawget(getfenv and getfenv() or {}, "cloneref") and cloneref) or function(x) return x end
 
--- layout config
+-- layout thingy
 local MAIN_WIDTH = 0.28
 local MAIN_HEIGHT = 0.44
 local MIN_WIDTH = 220
@@ -671,7 +670,9 @@ local function addMiscButton(labelText, codeString)
     return btn
 end
 
-addMiscButton("Example1", 'loadstring(game:HttpGet("https://raw.githubusercontent.com/randomizedcomponent/UC/refs/heads/main/3307468c285f4fe535fb5d87b4b053e6.lua"))()')
+addMiscButton("ChatBypass [Usercreated]", 'loadstring(game:HttpGet("https://raw.githubusercontent.com/randomizedcomponent/UC/refs/heads/main/3307468c285f4fe535fb5d87b4b053e6.lua"))()')
+addMiscButton("Bang but V2", 'loadstring(game:HttpGet("https://raw.githubusercontent.com/Fe-ProjectR/Balls/refs/heads/main/Backstab"))()')
+
 
 local themeContent = Instance.new("ScrollingFrame")
 themeContent.Parent = themeCard
