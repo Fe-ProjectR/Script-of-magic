@@ -672,6 +672,8 @@ end
 
 addMiscButton("ChatBypass [Usercreated]", 'loadstring(game:HttpGet("https://raw.githubusercontent.com/randomizedcomponent/UC/refs/heads/main/3307468c285f4fe535fb5d87b4b053e6.lua"))()')
 addMiscButton("Bang but V2", 'loadstring(game:HttpGet("https://raw.githubusercontent.com/Fe-ProjectR/Balls/refs/heads/main/Backstab"))()')
+addMiscButton("NPC Leash", 'loadstring(game:HttpGet("https://raw.githubusercontent.com/Fe-ProjectR/Balls/refs/heads/main/LEASH"))()')
+
 
 
 local themeContent = Instance.new("ScrollingFrame")
