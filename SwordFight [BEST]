@@ -1,0 +1,903 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local camera = Workspace.CurrentCamera
+
+-- safe cloneref fallback
+local safe_cloneref = (rawget(getfenv and getfenv() or {}, "cloneref") and cloneref) or function(x) return x end
+
+-- layout config
+local MAIN_WIDTH = 0.28
+local MAIN_HEIGHT = 0.44
+local MIN_WIDTH = 220
+local MIN_HEIGHT = 280
+local defaultWalkSpeed = 16
+local defaultJumpPower = 50
+
+local function addCorner(inst, r) local c = Instance.new("UICorner", inst); c.CornerRadius = UDim.new(0, r) end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SwordFightGUI_LayoutFixed"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Parent = screenGui
+mainFrame.AnchorPoint = Vector2.new(0, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(34,36,39)
+mainFrame.BorderSizePixel = 0
+mainFrame.ZIndex = 30
+addCorner(mainFrame, 10)
+
+local function updateResponsive()
+    local sw, sh = camera.ViewportSize.X, camera.ViewportSize.Y
+    local width = math.max(sw * MAIN_WIDTH, MIN_WIDTH)
+    local height = math.max(sh * MAIN_HEIGHT, MIN_HEIGHT)
+    mainFrame.Size = UDim2.new(0, width, 0, height)
+    if mainFrame.AbsolutePosition then
+        local px = math.clamp(mainFrame.AbsolutePosition.X, 0, sw - width)
+        local py = math.clamp(mainFrame.AbsolutePosition.Y, 0, sh - height)
+        mainFrame.Position = UDim2.new(0, px, 0, py)
+    else
+        mainFrame.Position = UDim2.new(0, 10, 0, 10)
+    end
+end
+updateResponsive()
+camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsive)
+
+local arrowButton = Instance.new("TextButton")
+arrowButton.Name = "ArrowButton"
+arrowButton.Parent = screenGui
+arrowButton.AnchorPoint = Vector2.new(0, 0.5)
+arrowButton.Size = UDim2.new(0, 28, 0, 56)
+arrowButton.Position = UDim2.new(0, 6, 0.5, -28)
+arrowButton.Text = ">"
+arrowButton.Font = Enum.Font.Code
+arrowButton.TextSize = 22
+arrowButton.TextColor3 = Color3.fromRGB(245,245,245)
+arrowButton.BackgroundColor3 = Color3.fromRGB(36,36,36)
+arrowButton.AutoButtonColor = true
+arrowButton.ZIndex = 40
+addCorner(arrowButton, 8)
+
+local titleBar = Instance.new("Frame")
+titleBar.Parent = mainFrame
+titleBar.Size = UDim2.new(1, 0, 0, 36)
+titleBar.Position = UDim2.new(0, 0, 0, 0)
+titleBar.BackgroundTransparency = 1
+titleBar.ZIndex = 31
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Parent = titleBar
+titleLabel.AnchorPoint = Vector2.new(0,0.5)
+titleLabel.Position = UDim2.new(0, 12, 0.5, 0)
+titleLabel.Size = UDim2.new(0.6, 0, 0.9, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Sword Fight"
+titleLabel.Font = Enum.Font.Code
+titleLabel.TextSize = 16
+titleLabel.TextColor3 = Color3.fromRGB(245,245,245)
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.ZIndex = 32
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Parent = titleBar
+closeBtn.AnchorPoint = Vector2.new(1,0.5)
+closeBtn.Position = UDim2.new(1, -10, 0.5, 0)
+closeBtn.Size = UDim2.new(0, 22, 0, 22)
+closeBtn.Text = "<"
+closeBtn.Font = Enum.Font.Code
+closeBtn.TextSize = 16
+closeBtn.TextColor3 = Color3.fromRGB(240,240,240)
+closeBtn.BackgroundColor3 = Color3.fromRGB(62,62,62)
+closeBtn.ZIndex = 33
+addCorner(closeBtn, 6)
+
+local tabContainer = Instance.new("Frame")
+tabContainer.Parent = mainFrame
+tabContainer.AnchorPoint = Vector2.new(0, 0)
+tabContainer.Position = UDim2.new(0, 12, 0, 44)
+tabContainer.Size = UDim2.new(1, -24, 0, 36)
+tabContainer.BackgroundTransparency = 1
+tabContainer.ZIndex = 35
+
+local tabLeft = Instance.new("TextButton", tabContainer)
+tabLeft.AnchorPoint = Vector2.new(0,0)
+tabLeft.Position = UDim2.new(0, 0, 0, 0)
+tabLeft.Size = UDim2.new(0, 24, 1, 0)
+tabLeft.Text = "<"
+tabLeft.Font = Enum.Font.Code
+tabLeft.TextScaled = true
+tabLeft.BackgroundColor3 = Color3.fromRGB(58,58,58)
+addCorner(tabLeft, 6)
+
+local tabRight = Instance.new("TextButton", tabContainer)
+tabRight.AnchorPoint = Vector2.new(1,0)
+tabRight.Position = UDim2.new(1, 0, 0, 0)
+tabRight.Size = UDim2.new(0, 24, 1, 0)
+tabRight.Text = ">"
+tabRight.Font = Enum.Font.Code
+tabRight.TextScaled = true
+tabRight.BackgroundColor3 = Color3.fromRGB(58,58,58)
+addCorner(tabRight, 6)
+
+local tabScroll = Instance.new("ScrollingFrame")
+tabScroll.Name = "TabScroll"
+tabScroll.Parent = tabContainer
+tabScroll.Active = true
+tabScroll.Position = UDim2.new(0, 28, 0, 2)
+tabScroll.Size = UDim2.new(1, -56, 1, -4)
+tabScroll.CanvasSize = UDim2.new(0, 0, 0, 0) -- horizontal-only canvas; Y=0 (no vertical scroll)
+tabScroll.ScrollBarThickness = 6
+tabScroll.BackgroundTransparency = 1
+tabScroll.HorizontalScrollBarInset = Enum.ScrollBarInset.Always
+tabScroll.VerticalScrollBarInset = Enum.ScrollBarInset.None
+tabScroll.ZIndex = 36
+
+local tabLayout = Instance.new("UIListLayout", tabScroll)
+tabLayout.FillDirection = Enum.FillDirection.Horizontal
+tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+tabLayout.Padding = UDim.new(0,8)
+
+local function refreshTabCanvas()
+    local width = tabLayout.AbsoluteContentSize.X
+    tabScroll.CanvasSize = UDim2.new(0, width + 8, 0, 0)
+end
+tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshTabCanvas)
+
+local function tweenTabTo(x)
+    TweenService:Create(tabScroll, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CanvasPosition = Vector2.new(x, 0)}):Play()
+end
+tabLeft.MouseButton1Click:Connect(function()
+    local newX = math.max(0, tabScroll.CanvasPosition.X - 160)
+    tweenTabTo(newX)
+end)
+tabRight.MouseButton1Click:Connect(function()
+    local maxX = math.max(0, tabScroll.CanvasSize.X.Offset - tabScroll.AbsoluteSize.X)
+    local newX = math.min(maxX, tabScroll.CanvasPosition.X + 160)
+    tweenTabTo(newX)
+end)
+
+local function createTab(name)
+    local btn = Instance.new("TextButton")
+    btn.Parent = tabScroll
+    btn.Size = UDim2.new(0, 110, 1, -6)
+    btn.Text = name
+    btn.Font = Enum.Font.Code
+    btn.TextScaled = true
+    btn.TextWrapped = true
+    btn.TextColor3 = Color3.fromRGB(230,230,230)
+    btn.BackgroundColor3 = Color3.fromRGB(64,64,64)
+    btn.AutoButtonColor = true
+    btn.ZIndex = 36
+    addCorner(btn, 8)
+    return btn
+end
+
+local detectTab = createTab("Detectables")
+local swordTab  = createTab("SwordFight")
+local miscTab   = createTab("Misc")
+local themesTab = createTab("Themes")
+
+-- content area (cards) — each card uses a vertical ScrollingFrame so content can scroll
+local contentArea = Instance.new("Frame")
+contentArea.Parent = mainFrame
+contentArea.AnchorPoint = Vector2.new(0,0)
+contentArea.Position = UDim2.new(0, 12, 0, 86)
+contentArea.Size = UDim2.new(1, -24, 1, -110)
+contentArea.BackgroundTransparency = 1
+contentArea.ZIndex = 30
+
+local function makeCard()
+    local f = Instance.new("Frame")
+    f.Parent = contentArea
+    f.Size = UDim2.new(1, 0, 1, 0)
+    f.Position = UDim2.new(0,0,0,0)
+    f.BackgroundColor3 = Color3.fromRGB(44,46,49)
+    f.BorderSizePixel = 0
+    f.ZIndex = 30
+    addCorner(f, 8)
+    return f
+end
+
+local detectCard = makeCard()
+local swordCard = makeCard()
+local miscCard  = makeCard()
+local themeCard = makeCard()
+swordCard.Visible = false
+miscCard.Visible = false
+themeCard.Visible = false
+
+local detectContent = Instance.new("ScrollingFrame")
+detectContent.Parent = detectCard
+detectContent.Size = UDim2.new(1, 0, 1, 0)
+detectContent.BackgroundTransparency = 1
+detectContent.ScrollBarThickness = 8
+detectContent.CanvasSize = UDim2.new(0, 0, 0, 0)
+detectContent.VerticalScrollBarInset = Enum.ScrollBarInset.Always
+detectContent.ZIndex = 31
+
+local detectList = Instance.new("UIListLayout", detectContent)
+detectList.FillDirection = Enum.FillDirection.Vertical
+detectList.SortOrder = Enum.SortOrder.LayoutOrder
+detectList.Padding = UDim.new(0,10)
+local detectPad = Instance.new("UIPadding", detectContent)
+detectPad.PaddingLeft = UDim.new(0,6)
+detectPad.PaddingTop = UDim.new(0,6)
+
+local function refreshDetectCanvas()
+    local h = detectList.AbsoluteContentSize.Y
+    detectContent.CanvasSize = UDim2.new(0, 0, 0, h + 12)
+end
+detectList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshDetectCanvas)
+
+local function createControlRow(labelText, initialValue)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, 44)
+    row.BackgroundTransparency = 1
+    row.ZIndex = 32
+
+    local rowLayout = Instance.new("UIListLayout", row)
+    rowLayout.FillDirection = Enum.FillDirection.Horizontal
+    rowLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    rowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    rowLayout.Padding = UDim.new(0,8)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Parent = row
+    lbl.Size = UDim2.new(0.38, 0, 1, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Font = Enum.Font.Code
+    lbl.Text = labelText
+    lbl.TextColor3 = Color3.fromRGB(235,235,235)
+    lbl.TextScaled = true
+    lbl.TextWrapped = true
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.ZIndex = 33
+
+    local box = Instance.new("TextBox")
+    box.Parent = row
+    box.Size = UDim2.new(0.42, 0, 0.9, 0)
+    box.ClearTextOnFocus = false
+    box.Text = tostring(initialValue)
+    box.PlaceholderText = "Number"
+    box.Font = Enum.Font.Code
+    box.TextScaled = true
+    box.TextWrapped = true
+    box.BackgroundColor3 = Color3.fromRGB(64,64,64)
+    box.TextColor3 = Color3.fromRGB(240,240,240)
+    addCorner(box, 6)
+    box.ZIndex = 33
+
+    local apply = Instance.new("TextButton")
+    apply.Parent = row
+    apply.Size = UDim2.new(0.20, 0, 0.9, 0)
+    apply.Text = "Apply"
+    apply.Font = Enum.Font.Code
+    apply.TextScaled = true
+    apply.BackgroundColor3 = Color3.fromRGB(88,88,88)
+    addCorner(apply, 6)
+    apply.ZIndex = 33
+
+    return row, box, apply
+end
+
+local walkRow, walkBox, walkApply = createControlRow("Walkspeed", defaultWalkSpeed)
+walkRow.Parent = detectContent
+local jumpRow, jumpBox, jumpApply = createControlRow("Jump power", defaultJumpPower)
+jumpRow.Parent = detectContent
+
+local resetRow = Instance.new("Frame")
+resetRow.Size = UDim2.new(1,0,0,38)
+resetRow.BackgroundTransparency = 1
+resetRow.ZIndex = 32
+resetRow.Parent = detectContent
+local resetLayout = Instance.new("UIListLayout", resetRow)
+resetLayout.FillDirection = Enum.FillDirection.Horizontal
+resetLayout.SortOrder = Enum.SortOrder.LayoutOrder
+resetLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+resetLayout.Padding = UDim.new(0,8)
+local spacer = Instance.new("Frame")
+spacer.Size = UDim2.new(0.38, 0, 1, 0)
+spacer.BackgroundTransparency = 1
+spacer.Parent = resetRow
+
+local resetBtn = Instance.new("TextButton")
+resetBtn.Parent = resetRow
+resetBtn.Size = UDim2.new(0.42, 0, 0.9, 0)
+resetBtn.Text = "Reset to Default"
+resetBtn.Font = Enum.Font.Code
+resetBtn.TextScaled = true
+resetBtn.TextWrapped = true
+resetBtn.BackgroundColor3 = Color3.fromRGB(86,86,86)
+addCorner(resetBtn, 7)
+resetBtn.ZIndex = 33
+
+local warnLabel = Instance.new("TextLabel")
+warnLabel.Parent = detectContent
+warnLabel.Size = UDim2.new(1, 0, 0, 36)
+warnLabel.Text = "You will be detected; use at your own risk"
+warnLabel.Font = Enum.Font.Code
+warnLabel.TextScaled = true
+warnLabel.TextWrapped = true
+warnLabel.TextColor3 = Color3.fromRGB(255,180,95)
+warnLabel.BackgroundTransparency = 1
+warnLabel.ZIndex = 32
+
+local humanoid
+local function refreshHumanoid()
+    humanoid = nil
+    local char = player.Character or player.CharacterAdded:Wait()
+    humanoid = char:FindFirstChildWhichIsA("Humanoid")
+    if humanoid then
+        defaultWalkSpeed = humanoid.WalkSpeed or defaultWalkSpeed
+        defaultJumpPower = humanoid.JumpPower or defaultJumpPower
+    end
+end
+refreshHumanoid()
+player.CharacterAdded:Connect(refreshHumanoid)
+
+walkApply.MouseButton1Click:Connect(function()
+    local t = tonumber(walkBox.Text)
+    if humanoid and t and t > 0 and t < 1000 then
+        humanoid.WalkSpeed = t
+    else
+        walkBox.Text = tostring(defaultWalkSpeed)
+    end
+end)
+jumpApply.MouseButton1Click:Connect(function()
+    local t = tonumber(jumpBox.Text)
+    if humanoid and t and t > 0 and t < 1000 then
+        humanoid.JumpPower = t
+    else
+        jumpBox.Text = tostring(defaultJumpPower)
+    end
+end)
+resetBtn.MouseButton1Click:Connect(function()
+    if humanoid then
+        humanoid.WalkSpeed = defaultWalkSpeed
+        humanoid.JumpPower = defaultJumpPower
+        walkBox.Text = tostring(defaultWalkSpeed)
+        jumpBox.Text = tostring(defaultJumpPower)
+    end
+end)
+
+local swordContent = Instance.new("ScrollingFrame")
+swordContent.Parent = swordCard
+swordContent.Size = UDim2.new(1,0,1,0)
+swordContent.BackgroundTransparency = 1
+swordContent.ScrollBarThickness = 8
+swordContent.CanvasSize = UDim2.new(0,0,0,0)
+swordContent.VerticalScrollBarInset = Enum.ScrollBarInset.Always
+swordContent.ZIndex = 31
+local swordList = Instance.new("UIListLayout", swordContent)
+swordList.FillDirection = Enum.FillDirection.Vertical
+swordList.Padding = UDim.new(0,10)
+swordList.SortOrder = Enum.SortOrder.LayoutOrder
+local swordPad = Instance.new("UIPadding", swordContent)
+swordPad.PaddingLeft = UDim.new(0,6)
+swordPad.PaddingTop  = UDim.new(0,6)
+local function refreshSwordCanvas()
+    swordContent.CanvasSize = UDim2.new(0, 0, 0, swordList.AbsoluteContentSize.Y + 12)
+end
+swordList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshSwordCanvas)
+
+local kaRow = Instance.new("Frame")
+kaRow.Size = UDim2.new(1,0,0,44)
+kaRow.BackgroundTransparency = 1
+kaRow.ZIndex = 32
+kaRow.Parent = swordContent
+local kaLayout = Instance.new("UIListLayout", kaRow)
+kaLayout.FillDirection = Enum.FillDirection.Horizontal
+kaLayout.SortOrder = Enum.SortOrder.LayoutOrder
+kaLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+kaLayout.Padding = UDim.new(0,8)
+local kaLabel = Instance.new("TextLabel")
+kaLabel.Parent = kaRow
+kaLabel.Size = UDim2.new(0.58,0,1,0)
+kaLabel.BackgroundTransparency = 1
+kaLabel.Font = Enum.Font.Code
+kaLabel.Text = "Kill Aura"
+kaLabel.TextScaled = true
+kaLabel.TextXAlignment = Enum.TextXAlignment.Left
+kaLabel.TextColor3 = Color3.fromRGB(235,235,235)
+kaLabel.ZIndex = 33
+
+local kaToggle = Instance.new("TextButton")
+kaToggle.Parent = kaRow
+kaToggle.Size = UDim2.new(0.36,0,0.85,0)
+kaToggle.Text = "OFF"
+kaToggle.Font = Enum.Font.Code
+kaToggle.TextScaled = true
+kaToggle.BackgroundColor3 = Color3.fromRGB(95,95,95)
+kaToggle.ZIndex = 33
+addCorner(kaToggle, 8)
+
+local toolsRow = Instance.new("Frame")
+toolsRow.Size = UDim2.new(1,0,0,44)
+toolsRow.BackgroundTransparency = 1
+toolsRow.Parent = swordContent
+toolsRow.ZIndex = 32
+local toolsLayout = Instance.new("UIListLayout", toolsRow)
+toolsLayout.FillDirection = Enum.FillDirection.Horizontal
+toolsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+toolsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+toolsLayout.Padding = UDim.new(0,8)
+local toolsSpacer = Instance.new("Frame")
+toolsSpacer.Size = UDim2.new(0.04,0,1,0)
+toolsSpacer.BackgroundTransparency = 1
+toolsSpacer.Parent = toolsRow
+
+local toolsBtn = Instance.new("TextButton")
+toolsBtn.Parent = toolsRow
+toolsBtn.Size = UDim2.new(0.46,0,0.85,0)
+toolsBtn.Text = "Give Tools"
+toolsBtn.Font = Enum.Font.Code
+toolsBtn.TextScaled = true
+toolsBtn.BackgroundColor3 = Color3.fromRGB(82,82,82)
+toolsBtn.ZIndex = 33
+addCorner(toolsBtn, 7)
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Parent = swordContent
+statusLabel.Size = UDim2.new(1,0,0,28)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Font = Enum.Font.Code
+statusLabel.TextScaled = true
+statusLabel.TextColor3 = Color3.fromRGB(200,200,200)
+statusLabel.ZIndex = 32
+
+local killAuraEnabled = false
+local function clearConfigs()
+    local cfg = rawget(getgenv(), "configs")
+    if not cfg then return end
+    if cfg.connections then
+        for _, v in pairs(cfg.connections) do
+            if typeof(v) == "RBXScriptConnection" and v.Connected then
+                pcall(function() v:Disconnect() end)
+            end
+        end
+    end
+    if cfg.Disable and typeof(cfg.Disable) == "Instance" and cfg.Disable:IsA("BindableEvent") then
+        pcall(function() cfg.Disable:Fire() end)
+        pcall(function() cfg.Disable:Destroy() end)
+    end
+    getgenv().configs = nil
+end
+
+local function enableKillAura()
+    clearConfigs()
+    local Disable = Instance.new("BindableEvent")
+    local cfg = {
+        connections = {},
+        Disable = Disable,
+        Size = Vector3.new(10,10,10),
+        DeathCheck = true
+    }
+    getgenv().configs = cfg
+
+    local sPlayers = safe_cloneref(Players)
+    local sRunService = safe_cloneref(RunService)
+    local lp = sPlayers.LocalPlayer
+
+    local Ignorelist = OverlapParams.new()
+    Ignorelist.FilterType = Enum.RaycastFilterType.Include
+
+    local function getchar(plr) return (plr or lp).Character end
+    local function gethum(plrOrChar)
+        local char = (typeof(plrOrChar) == "Instance" and plrOrChar:IsA("Model")) and plrOrChar or getchar(plrOrChar)
+        return char and char:FindFirstChildWhichIsA("Humanoid") or nil
+    end
+    local function alive(h) return h and h.Health > 0 end
+    local function touchTx(tool) return tool and tool:FindFirstChildWhichIsA("TouchTransmitter", true) end
+    local function others(localChar)
+        local t = {}
+        for _,v in ipairs(sPlayers:GetPlayers()) do
+            table.insert(t, getchar(v))
+        end
+        local idx = table.find(t, localChar)
+        if idx then table.remove(t, idx) end
+        return t
+    end
+    local function swing(tool, touchPart, toTouch)
+        if tool and tool:IsDescendantOf(Workspace) and touchPart and toTouch then
+            tool:Activate()
+            pcall(function()
+                firetouchinterest(touchPart, toTouch, 1)
+                firetouchinterest(touchPart, toTouch, 0)
+            end)
+        end
+    end
+
+    table.insert(cfg.connections, Disable.Event:Connect(function() end))
+
+    table.insert(cfg.connections, sRunService.Heartbeat:Connect(function()
+        if not killAuraEnabled then return end
+        local char = getchar()
+        local hum = gethum(char)
+        if not alive(hum) then return end
+        local tool = char and char:FindFirstChildWhichIsA("Tool")
+        local tx = touchTx(tool)
+        if not tx then return end
+        local touchPart = tx.Parent
+        local chars = others(char)
+        Ignorelist.FilterDescendantsInstances = chars
+        local partsInBox = Workspace:GetPartBoundsInBox(touchPart.CFrame, touchPart.Size + getgenv().configs.Size, Ignorelist)
+        for _, part in ipairs(partsInBox) do
+            local model = part:FindFirstAncestorWhichIsA("Model")
+            if model and table.find(chars, model) then
+                if getgenv().configs.DeathCheck then
+                    local oh = gethum(model)
+                    if alive(oh) then swing(tool, touchPart, part) end
+                else
+                    swing(tool, touchPart, part)
+                end
+            end
+        end
+    end))
+end
+
+local function disableKillAura()
+    clearConfigs()
+end
+
+kaToggle.MouseButton1Click:Connect(function()
+    killAuraEnabled = not killAuraEnabled
+    if killAuraEnabled then
+        kaToggle.Text = "ON"
+        kaToggle.BackgroundColor3 = Color3.fromRGB(140,30,30)
+        statusLabel.Text = "Kill Aura: ON"
+        enableKillAura()
+    else
+        kaToggle.Text = "OFF"
+        kaToggle.BackgroundColor3 = Color3.fromRGB(95,95,95)
+        statusLabel.Text = "Kill Aura: OFF"
+        disableKillAura()
+    end
+end)
+
+local function giveTeleportTool()
+    local tool = Instance.new("Tool")
+    tool.Name = "Tp Tool"
+    tool.RequiresHandle = false
+    tool.CanBeDropped = false
+    tool.Parent = player.Backpack
+    tool.ToolTip = "Click ground to teleport"
+
+    local equipped = false
+    local mouse, preview
+    local mvConn
+
+    tool.Equipped:Connect(function()
+        equipped = true
+        mouse = player:GetMouse()
+        preview = Instance.new("Part")
+        preview.Size = Vector3.new(1.2,0.2,1.2)
+        preview.Transparency = 0.6
+        preview.Anchored = true
+        preview.CanCollide = false
+        preview.Material = Enum.Material.Neon
+        preview.Parent = Workspace
+        mvConn = RunService.RenderStepped:Connect(function()
+            if mouse and mouse.Hit and preview then
+                preview.Position = mouse.Hit.Position + Vector3.new(0,0.1,0)
+            end
+        end)
+        statusLabel.Text = "Tp Tool equipped"
+    end)
+
+    tool.Unequipped:Connect(function()
+        equipped = false
+        if mvConn then mvConn:Disconnect() mvConn = nil end
+        if preview then preview:Destroy(); preview = nil end
+        statusLabel.Text = ""
+    end)
+
+    tool.Activated:Connect(function()
+        if not equipped then return end
+        if mouse and mouse.Hit then
+            local pos = mouse.Hit.Position
+            local char = player.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                pcall(function() hrp.CFrame = CFrame.new(pos + Vector3.new(0,3,0)) end)
+                statusLabel.Text = "Teleported."
+            end
+        end
+    end)
+end
+
+toolsBtn.MouseButton1Click:Connect(function()
+    toolsBtn.Text = "Giving..."
+    giveTeleportTool()
+    task.wait(0.12)
+    toolsBtn.Text = "Give Tools"
+    statusLabel.Text = "Teleport tool added"
+end)
+
+local miscContent = Instance.new("ScrollingFrame")
+miscContent.Parent = miscCard
+miscContent.Size = UDim2.new(1,0,1,0)
+miscContent.BackgroundTransparency = 1
+miscContent.ScrollBarThickness = 8
+miscContent.CanvasSize = UDim2.new(0,0,0,0)
+miscContent.VerticalScrollBarInset = Enum.ScrollBarInset.Always
+miscContent.ZIndex = 31
+local miscList = Instance.new("UIListLayout", miscContent)
+miscList.FillDirection = Enum.FillDirection.Vertical
+miscList.Padding = UDim.new(0,8)
+miscList.SortOrder = Enum.SortOrder.LayoutOrder
+local miscPad = Instance.new("UIPadding", miscContent)
+miscPad.PaddingLeft = UDim.new(0,6)
+miscPad.PaddingTop  = UDim.new(0,6)
+local function refreshMiscCanvas()
+    miscContent.CanvasSize = UDim2.new(0,0,0,miscList.AbsoluteContentSize.Y + 12)
+end
+miscList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshMiscCanvas)
+
+local function addMiscButton(labelText, codeString)
+    local btn = Instance.new("TextButton")
+    btn.Parent = miscContent
+    btn.Size = UDim2.new(1, 0, 0, 40)
+    btn.Text = labelText or "misc"
+    btn.Font = Enum.Font.Code
+    btn.TextScaled = true
+    btn.TextWrapped = true
+    btn.BackgroundColor3 = Color3.fromRGB(70,70,70)
+    addCorner(btn, 8)
+    btn.ZIndex = 32
+
+    btn.MouseButton1Click:Connect(function()
+        local ok, err = pcall(function()
+            local f = loadstring(codeString)
+            if type(f) == "function" then f() else error("loadstring returned non-function") end
+        end)
+        if not ok then
+            warn("Misc exec error:", err)
+            statusLabel.Text = "Last misc failed"
+            task.delay(2, function() if statusLabel and statusLabel.Parent then statusLabel.Text = "" end end)
+        else
+            statusLabel.Text = "Misc executed: "..tostring(labelText)
+            task.delay(2, function() if statusLabel and statusLabel.Parent then statusLabel.Text = "" end end)
+        end
+    end)
+    return btn
+end
+
+addMiscButton("Example1", 'loadstring(game:HttpGet("https://raw.githubusercontent.com/randomizedcomponent/UC/refs/heads/main/3307468c285f4fe535fb5d87b4b053e6.lua"))()')
+
+local themeContent = Instance.new("ScrollingFrame")
+themeContent.Parent = themeCard
+themeContent.Size = UDim2.new(1,0,1,0)
+themeContent.BackgroundTransparency = 1
+themeContent.ScrollBarThickness = 8
+themeContent.CanvasSize = UDim2.new(0,0,0,0)
+themeContent.VerticalScrollBarInset = Enum.ScrollBarInset.Always
+themeContent.ZIndex = 31
+local themeList = Instance.new("UIListLayout", themeContent)
+themeList.FillDirection = Enum.FillDirection.Vertical
+themeList.Padding = UDim.new(0,8)
+themeList.SortOrder = Enum.SortOrder.LayoutOrder
+local themePad = Instance.new("UIPadding", themeContent)
+themePad.PaddingLeft = UDim.new(0,6)
+themePad.PaddingTop  = UDim.new(0,6)
+local function refreshThemeCanvas()
+    themeContent.CanvasSize = UDim2.new(0,0,0,themeList.AbsoluteContentSize.Y + 12)
+end
+themeList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshThemeCanvas)
+
+-- Capture default theme
+local defaultTheme = {
+    main = mainFrame.BackgroundColor3,
+    panel = detectCard.BackgroundColor3,
+    button = Color3.fromRGB(64,64,64),
+    accent = Color3.fromRGB(82,82,82),
+    text = Color3.fromRGB(230,230,230)
+}
+
+-- apply theme helper (recolors items inside mainFrame)
+local function applyTheme(t)
+    if not t then return end
+    mainFrame.BackgroundColor3 = t.main or defaultTheme.main
+    detectCard.BackgroundColor3 = t.panel or defaultTheme.panel
+    swordCard.BackgroundColor3 = t.panel or defaultTheme.panel
+    miscCard.BackgroundColor3  = t.panel or defaultTheme.panel
+    themeCard.BackgroundColor3 = t.panel or defaultTheme.panel
+
+    for _, inst in ipairs(mainFrame:GetDescendants()) do
+        if inst:IsA("TextButton") then
+            -- leave arrow out (it's outside mainFrame)
+            inst.BackgroundColor3 = t.button or defaultTheme.button
+            inst.TextColor3 = t.text or defaultTheme.text
+        elseif inst:IsA("TextLabel") then
+            inst.TextColor3 = t.text or defaultTheme.text
+        elseif inst:IsA("TextBox") then
+            inst.BackgroundColor3 = t.panel or defaultTheme.panel
+            inst.TextColor3 = t.text or defaultTheme.text
+        end
+    end
+
+    -- accents
+    kaToggle.BackgroundColor3 = t.accent or defaultTheme.accent
+    toolsBtn.BackgroundColor3 = t.accent or defaultTheme.accent
+    resetBtn.BackgroundColor3 = t.accent or defaultTheme.accent
+end
+
+-- theme presets
+local themes = {
+    ["Dark (Default)"] = {
+        main = Color3.fromRGB(34,36,39),
+        panel = Color3.fromRGB(44,46,49),
+        button = Color3.fromRGB(64,64,64),
+        accent = Color3.fromRGB(82,82,82),
+        text = Color3.fromRGB(230,230,230)
+    },
+    ["Blood Red"] = {
+        main = Color3.fromRGB(30,10,10),
+        panel = Color3.fromRGB(48,14,14),
+        button = Color3.fromRGB(95,30,30),
+        accent = Color3.fromRGB(140,30,30),
+        text = Color3.fromRGB(255,220,220)
+    },
+    ["Ocean Blue"] = {
+        main = Color3.fromRGB(12,28,44),
+        panel = Color3.fromRGB(18,38,64),
+        button = Color3.fromRGB(36,72,120),
+        accent = Color3.fromRGB(48,120,200),
+        text = Color3.fromRGB(220,240,255)
+    },
+    ["Sunset"] = {
+        main = Color3.fromRGB(44,18,12),
+        panel = Color3.fromRGB(60,24,16),
+        button = Color3.fromRGB(190,90,50),
+        accent = Color3.fromRGB(230,120,60),
+        text = Color3.fromRGB(255,240,230)
+    }
+}
+
+for name, tbl in pairs(themes) do
+    local b = Instance.new("TextButton")
+    b.Parent = themeContent
+    b.Size = UDim2.new(1, 0, 0, 36)
+    b.Text = name
+    b.Font = Enum.Font.Code
+    b.TextScaled = true
+    b.BackgroundColor3 = tbl.button
+    addCorner(b, 8)
+    b.ZIndex = 32
+    b.MouseButton1Click:Connect(function()
+        applyTheme(tbl)
+        statusLabel.Text = "Theme: "..name
+        task.delay(1.6, function() if statusLabel and statusLabel.Parent then statusLabel.Text = "" end end)
+    end)
+end
+
+local resetThemeBtn = Instance.new("TextButton")
+resetThemeBtn.Parent = themeContent
+resetThemeBtn.Size = UDim2.new(1, 0, 0, 36)
+resetThemeBtn.Text = "Reset to Default Colors"
+resetThemeBtn.Font = Enum.Font.Code
+resetThemeBtn.TextScaled = true
+resetThemeBtn.BackgroundColor3 = defaultTheme.button
+addCorner(resetThemeBtn, 8)
+resetThemeBtn.ZIndex = 32
+resetThemeBtn.MouseButton1Click:Connect(function()
+    applyTheme(defaultTheme)
+    statusLabel.Text = "Theme reset"
+    task.delay(1.6, function() if statusLabel and statusLabel.Parent then statusLabel.Text = "" end end)
+end)
+
+local function setTab(name)
+    detectCard.Visible = (name == "Detectables")
+    swordCard.Visible  = (name == "SwordFight")
+    miscCard.Visible   = (name == "Misc")
+    themeCard.Visible  = (name == "Themes")
+
+    for _, v in ipairs(tabScroll:GetChildren()) do
+        if v:IsA("TextButton") then
+            v.BackgroundColor3 = (v.Text == name) and Color3.fromRGB(86,86,86) or Color3.fromRGB(64,64,64)
+        end
+    end
+
+    for _, v in ipairs(tabScroll:GetChildren()) do
+        if v:IsA("TextButton") and v.Text == name then
+            local targetX = math.max(0, v.AbsolutePosition.X - tabScroll.AbsolutePosition.X - 16)
+            tweenTabTo(targetX)
+            break
+        end
+    end
+end
+detectTab.MouseButton1Click:Connect(function() setTab("Detectables") end)
+swordTab.MouseButton1Click:Connect(function() setTab("SwordFight") end)
+miscTab.MouseButton1Click:Connect(function() setTab("Misc") end)
+themesTab.MouseButton1Click:Connect(function() setTab("Themes") end)
+setTab("Detectables")
+
+local shown = true
+local tweenInfo = TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local function showMain()
+    if shown then return end
+    shown = true
+    TweenService:Create(arrowButton, tweenInfo, {Rotation = 180}):Play()
+    TweenService:Create(mainFrame, tweenInfo, {Position = UDim2.new(0, 10, 0, 10)}):Play()
+end
+local function hideMain()
+    if not shown then return end
+    shown = false
+    TweenService:Create(arrowButton, tweenInfo, {Rotation = 0}):Play()
+    TweenService:Create(mainFrame, tweenInfo, {Position = UDim2.new(-1, -16, 0, 10)}):Play()
+end
+mainFrame.Position = UDim2.new(0, 10, 0, 10)
+arrowButton.Rotation = 180
+arrowButton.MouseButton1Click:Connect(function() if shown then hideMain() else showMain() end end)
+closeBtn.MouseButton1Click:Connect(hideMain)
+
+mainFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+    if shown then
+        local px = math.clamp(mainFrame.AbsolutePosition.X, 0, camera.ViewportSize.X - mainFrame.AbsoluteSize.X)
+        local py = math.clamp(mainFrame.AbsolutePosition.Y, 0, camera.ViewportSize.Y - mainFrame.AbsoluteSize.Y)
+        mainFrame.Position = UDim2.new(0, px, 0, py)
+    end
+end)
+
+titleBar.Active = true
+titleBar.Selectable = true
+local dragging = false
+local dragInput = nil
+local dragOffset = Vector2.new(0,0)
+local function startDrag(input)
+    if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+    dragging = true
+    dragInput = input
+    local mp = input.Position
+    dragOffset = Vector2.new(mp.X - mainFrame.AbsolutePosition.X, mp.Y - mainFrame.AbsolutePosition.Y)
+    input.Changed:Connect(function()
+        if input.UserInputState == Enum.UserInputState.End then
+            dragging = false
+            dragInput = nil
+        end
+    end)
+end
+local function updateDrag(input)
+    if not dragging or not dragInput then return end
+    if input ~= dragInput then return end
+    local mp = input.Position
+    local newX = mp.X - dragOffset.X
+    local newY = mp.Y - dragOffset.Y
+    local vs = camera.ViewportSize
+    local fw = mainFrame.AbsoluteSize.X
+    local fh = mainFrame.AbsoluteSize.Y
+    newX = math.clamp(newX, 0, math.max(0, vs.X - fw))
+    newY = math.clamp(newY, 0, math.max(0, vs.Y - fh))
+    mainFrame.Position = UDim2.new(0, newX, 0, newY)
+end
+titleBar.InputBegan:Connect(startDrag)
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        updateDrag(input)
+    end
+end)
+
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.KeyCode == Enum.KeyCode.M then
+        if shown then hideMain() else showMain() end
+    end
+end)
+
+task.defer(refreshTabCanvas)
+task.defer(refreshDetectCanvas)
+task.defer(refreshSwordCanvas)
+task.defer(refreshMiscCanvas)
+task.defer(refreshThemeCanvas)
+applyTheme(defaultTheme)
+
+if walkBox then walkBox.Text = tostring(defaultWalkSpeed) end
+if jumpBox then jumpBox.Text = tostring(defaultJumpPower) end
